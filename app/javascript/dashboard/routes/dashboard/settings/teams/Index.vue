@@ -2,7 +2,7 @@
 import { useAlert } from 'dashboard/composables';
 import { useAdmin } from 'dashboard/composables/useAdmin';
 import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
-import { computed, ref } from 'vue';
+import { computed, onActivated, onMounted, ref } from 'vue';
 
 import { useStoreGetters, useStore } from 'dashboard/composables/store';
 import { useI18n } from 'vue-i18n';
@@ -17,6 +17,24 @@ const uiFlags = computed(() => getters['teams/getUIFlags'].value);
 const { isAdmin } = useAdmin();
 
 const loading = ref({});
+
+const fetchTeams = async () => {
+  try {
+    await store.dispatch('teams/get');
+  } catch (error) {
+    useAlert(t('TEAMS_SETTINGS.DELETE.API.ERROR_MESSAGE'));
+  }
+};
+
+onMounted(async () => {
+  await fetchTeams();
+});
+
+onActivated(async () => {
+  if (!teamsList.value.length && !uiFlags.value.isFetching) {
+    await fetchTeams();
+  }
+});
 
 const deleteTeam = async ({ id }) => {
   try {

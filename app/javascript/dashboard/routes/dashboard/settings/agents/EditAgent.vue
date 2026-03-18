@@ -5,7 +5,9 @@ import { required, minLength } from '@vuelidate/validators';
 import { useStore, useMapGetter } from 'dashboard/composables/store';
 import { useI18n } from 'vue-i18n';
 import { useAlert } from 'dashboard/composables';
+import { parseAPIErrorResponse } from 'dashboard/store/utils/api';
 import Button from 'dashboard/components-next/button/Button.vue';
+import { isValidPassword } from 'shared/helpers/Validators';
 import Auth from '../../../../api/auth';
 import wootConstants from 'dashboard/constants/globals';
 
@@ -119,6 +121,45 @@ const availabilityStatuses = computed(() =>
   }))
 );
 
+const passwordRequirements = computed(() => {
+  const currentPassword = password.value || '';
+  return {
+    length: currentPassword.length >= 6,
+    uppercase: /[A-Z]/.test(currentPassword),
+    lowercase: /[a-z]/.test(currentPassword),
+    number: /[0-9]/.test(currentPassword),
+    special: /[!@#$%^&*()_+\-=[\]{}|'"/\\.,`<>:;?~]/.test(currentPassword),
+  };
+});
+
+const passwordRequirementItems = computed(() => [
+  {
+    id: 'length',
+    met: passwordRequirements.value.length,
+    label: t('REGISTER.PASSWORD.REQUIREMENTS_LENGTH', { min: 6 }),
+  },
+  {
+    id: 'uppercase',
+    met: passwordRequirements.value.uppercase,
+    label: t('REGISTER.PASSWORD.REQUIREMENTS_UPPERCASE'),
+  },
+  {
+    id: 'lowercase',
+    met: passwordRequirements.value.lowercase,
+    label: t('REGISTER.PASSWORD.REQUIREMENTS_LOWERCASE'),
+  },
+  {
+    id: 'number',
+    met: passwordRequirements.value.number,
+    label: t('REGISTER.PASSWORD.REQUIREMENTS_NUMBER'),
+  },
+  {
+    id: 'special',
+    met: passwordRequirements.value.special,
+    label: t('REGISTER.PASSWORD.REQUIREMENTS_SPECIAL'),
+  },
+]);
+
 const editAgent = async () => {
   v$.value.$touch();
   if (v$.value.$invalid) return;
@@ -155,8 +196,8 @@ const resetPassword = async () => {
 };
 
 const setPassword = async () => {
-  if (password.value.length < 6) {
-    useAlert(t('SET_NEW_PASSWORD.PASSWORD.ERROR'));
+  if (!isValidPassword(password.value) || password.value.length < 6) {
+    useAlert(t('REGISTER.PASSWORD.IS_INVALID_PASSWORD'));
     return;
   }
 
@@ -175,7 +216,9 @@ const setPassword = async () => {
     passwordConfirmation.value = '';
     useAlert(t('SET_NEW_PASSWORD.API.SUCCESS_MESSAGE'));
   } catch (error) {
-    useAlert(t('SET_NEW_PASSWORD.API.ERROR_MESSAGE'));
+    useAlert(
+      parseAPIErrorResponse(error) || t('SET_NEW_PASSWORD.API.ERROR_MESSAGE')
+    );
   }
 };
 </script>
@@ -245,6 +288,21 @@ const setPassword = async () => {
             />
           </label>
 
+          <div class="text-sm text-n-slate-11">
+            <p class="mb-2">
+              {{ $t('REGISTER.PASSWORD.IS_INVALID_PASSWORD') }}
+            </p>
+            <ul class="space-y-1 pl-4 list-disc">
+              <li
+                v-for="item in passwordRequirementItems"
+                :key="item.id"
+                :class="item.met ? 'text-n-teal-11' : 'text-n-slate-11'"
+              >
+                {{ item.label }}
+              </li>
+            </ul>
+          </div>
+
           <label>
             {{ $t('SET_NEW_PASSWORD.CONFIRM_PASSWORD.LABEL') }}
             <input
@@ -253,13 +311,26 @@ const setPassword = async () => {
               :placeholder="$t('SET_NEW_PASSWORD.CONFIRM_PASSWORD.PLACEHOLDER')"
             />
           </label>
+          <p
+            v-if="passwordConfirmation && password !== passwordConfirmation"
+            class="text-sm text-n-ruby-11"
+          >
+            {{ $t('SET_NEW_PASSWORD.CONFIRM_PASSWORD.ERROR') }}
+          </p>
 
           <div>
             <Button
               type="button"
               slate
               :label="$t('SET_NEW_PASSWORD.SUBMIT')"
-              :disabled="!password || !passwordConfirmation || uiFlags.isUpdating"
+              :disabled="
+                !password ||
+                !passwordConfirmation ||
+                password !== passwordConfirmation ||
+                !passwordRequirements.length ||
+                !isValidPassword(password) ||
+                uiFlags.isUpdating
+              "
               :is-loading="uiFlags.isUpdating"
               @click.prevent="setPassword"
             />
