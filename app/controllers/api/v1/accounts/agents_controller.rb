@@ -23,6 +23,7 @@ class Api::V1::Accounts::AgentsController < Api::V1::Accounts::BaseController
   end
 
   def update
+    update_agent_credentials if password_update?
     @agent.update!(agent_params.slice(:name).compact)
     @agent.current_account_user.update!(agent_params.slice(*account_user_attributes).compact)
   end
@@ -72,7 +73,7 @@ class Api::V1::Accounts::AgentsController < Api::V1::Accounts::BaseController
   end
 
   def allowed_agent_params
-    [:name, :email, :role, :availability, :auto_offline]
+    [:name, :email, :role, :availability, :auto_offline, :password, :password_confirmation]
   end
 
   def agent_params
@@ -103,6 +104,16 @@ class Api::V1::Accounts::AgentsController < Api::V1::Accounts::BaseController
 
   def can_add_agent?
     available_agent_count.positive?
+  end
+
+  def password_update?
+    agent_params[:password].present?
+  end
+
+  def update_agent_credentials
+    @agent.assign_attributes(agent_params.slice(:password, :password_confirmation))
+    @agent.confirm unless @agent.confirmed?
+    @agent.save!
   end
 
   def delete_user_record(agent)

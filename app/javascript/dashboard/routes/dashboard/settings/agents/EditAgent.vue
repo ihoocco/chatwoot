@@ -51,6 +51,8 @@ const agentName = ref(props.name);
 const agentAvailability = ref(props.availability);
 const selectedRoleId = ref(props.customRoleId || props.type);
 const agentCredentials = ref({ email: props.email });
+const password = ref('');
+const passwordConfirmation = ref('');
 
 const rules = {
   agentName: { required, minLength: minLength(1) },
@@ -151,6 +153,31 @@ const resetPassword = async () => {
     useAlert(t('AGENT_MGMT.EDIT.PASSWORD_RESET.ERROR_MESSAGE'));
   }
 };
+
+const setPassword = async () => {
+  if (password.value.length < 6) {
+    useAlert(t('SET_NEW_PASSWORD.PASSWORD.ERROR'));
+    return;
+  }
+
+  if (password.value !== passwordConfirmation.value) {
+    useAlert(t('SET_NEW_PASSWORD.CONFIRM_PASSWORD.ERROR'));
+    return;
+  }
+
+  try {
+    await store.dispatch('agents/update', {
+      id: props.id,
+      password: password.value,
+      password_confirmation: passwordConfirmation.value,
+    });
+    password.value = '';
+    passwordConfirmation.value = '';
+    useAlert(t('SET_NEW_PASSWORD.API.SUCCESS_MESSAGE'));
+  } catch (error) {
+    useAlert(t('SET_NEW_PASSWORD.API.ERROR_MESSAGE'));
+  }
+};
 </script>
 
 <template>
@@ -202,6 +229,42 @@ const resetPassword = async () => {
             {{ $t('AGENT_MGMT.EDIT.FORM.AGENT_AVAILABILITY.ERROR') }}
           </span>
         </label>
+      </div>
+
+      <div v-if="provider !== 'saml'" class="w-full py-2">
+        <p class="mb-2 text-sm font-medium text-n-slate-12">
+          {{ $t('SET_NEW_PASSWORD.TITLE') }}
+        </p>
+        <div class="flex flex-col gap-3">
+          <label>
+            {{ $t('SET_NEW_PASSWORD.PASSWORD.LABEL') }}
+            <input
+              v-model="password"
+              type="password"
+              :placeholder="$t('SET_NEW_PASSWORD.PASSWORD.PLACEHOLDER')"
+            />
+          </label>
+
+          <label>
+            {{ $t('SET_NEW_PASSWORD.CONFIRM_PASSWORD.LABEL') }}
+            <input
+              v-model="passwordConfirmation"
+              type="password"
+              :placeholder="$t('SET_NEW_PASSWORD.CONFIRM_PASSWORD.PLACEHOLDER')"
+            />
+          </label>
+
+          <div>
+            <Button
+              type="button"
+              slate
+              :label="$t('SET_NEW_PASSWORD.SUBMIT')"
+              :disabled="!password || !passwordConfirmation || uiFlags.isUpdating"
+              :is-loading="uiFlags.isUpdating"
+              @click.prevent="setPassword"
+            />
+          </div>
+        </div>
       </div>
 
       <div class="flex flex-row justify-start w-full gap-2 px-0 py-2">
